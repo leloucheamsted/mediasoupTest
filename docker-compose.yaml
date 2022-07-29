@@ -1,0 +1,55 @@
+version: '3.5'
+services:
+  mysqldb:
+    image: mysql:latest
+    container_name: mysqlcontainer
+    command: --defaut-authentification-plugin=mysql_native_password
+    restart: unless-stopped
+    volumes:
+      - ./dbinit/init.sql:/docker-entrypoint-initdb.d/0_init.sql
+      - dbdata:/var/lib/mysql
+    ports:
+      - 3306:3306
+    expose:
+      - 3306
+    environment:
+      MYSQL_DATABASE: patientsdb
+      MYSQL_USER: root
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysqldb
+    networks:
+      - internalnet
+
+  # nodeapp:
+  #   container_name: nodeappcontainer
+  #   build: .
+  #   image: nodeapp:v1
+  #   volumes:
+  #     - $HOME/nodeapp:/code
+  #   ports:
+  #     - 3000:3000
+  #   expose:
+  #     - 3000
+  #   environment:
+  #     DB_HOST: mysqldb
+  #     DB_PORT: 3306
+  #     DB_USER: 'root'
+  #     DB_PASSWORD: 'password'
+  #     DB_NAME: patientsdb
+  #     DB_CONNECTION_LIMIT: 20
+  #     SERVICE_TAGS: prod
+  #     SERVICE_NAME: nodeappservice
+  #     SERVER_PORT: 3000
+  #   depends_on:
+  #     - mysqldb
+  #   networks:
+  #     - internalnet
+volumes:
+  dbdata:
+
+networks:
+  internalnet:
+    driver: bridge
+  
