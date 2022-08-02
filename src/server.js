@@ -7,7 +7,7 @@ import path from 'path'
 const __dirname = path.resolve()
 
 import { Server } from 'socket.io'
-import mediasoup from 'mediasoup'
+import mediasoup, { getSupportedRtpCapabilities } from 'mediasoup'
 
 app.get('/', (req, res) => {
   res.send('Hello from mediasoup app!')
@@ -31,6 +31,14 @@ const io = new Server(httpsServer)
 // socket.io namespace (could represent a room?)
 const peers = io.of('/mediasoup')
 
+/**
+ * Worker
+ * |-> Router(s)
+ *     |-> Producer Transport(s)
+ *         |-> Producer
+ *     |-> Consumer Transport(s)
+ *         |-> Consumer 
+ **/
 let worker
 let router
 let producerTransport
@@ -70,7 +78,7 @@ const mediaCodecs = [
   },
   {
     kind: 'video',
-    mimeType: 'video/vp8',
+    mimeType: 'video/VP8',
     clockRate: 90000,
     parameters: {
       'x-google-start-bitrate': 1000,
@@ -81,7 +89,8 @@ const mediaCodecs = [
 peers.on('connection', async socket => {
   console.log(socket.id)
   socket.emit('connection-success', {
-    socketId: socket.id
+    socketId: socket.id,
+    existsProducer: producer ? true : false,
   })
 
   socket.on('disconnect', () => {
@@ -89,24 +98,25 @@ peers.on('connection', async socket => {
     console.log('peer disconnected')
   })
 
-  // worker.createRouter(options)
-  // options = { mediaCodecs, appData }
-  // mediaCodecs -> defined above
-  // appData -> custom application data - we are not supplying any
-  // none of the two are required
-  router = await worker.createRouter({ mediaCodecs, })
+  socket.on('createRoom', async (callback) => {
+    if (router === undefined) {
+      // worker.createRouter(options)
+      // options = { mediaCodecs, appData }
+      // mediaCodecs -> defined above
+      // appData -> custom application data - we are not supplying any
+      // none of the two are required
+      router = await worker.createRouter({ mediaCodecs, })
+      console.log(`Router ID: ${router.id}`)
+    }
 
-  // Client emits a request for RTP Capabilities
-  // This event responds to the request
-  socket.on('getRtpCapabilities', (callback) => {
+    getRtpCapabilities(callback)
+  })
 
+  const getRtpCapabilities = (callback) => {
     const rtpCapabilities = router.rtpCapabilities
 
-    console.log('rtp Capabilities', rtpCapabilities)
-
-    // call callback from the client and send back the rtpCapabilities
     callback({ rtpCapabilities })
-  })
+  }
 
   // Client emits a request to create server side Transport
   // We need to differentiate between the producer and consumer transports
@@ -153,8 +163,8 @@ peers.on('connection', async socket => {
     await consumerTransport.connect({ dtlsParameters })
   })
 
+
   socket.on('consume', async ({ rtpCapabilities }, callback) => {
-    console.log('CONS');
     try {
       // check if the router can consume the specified producer
       if (router.canConsume({
@@ -186,7 +196,7 @@ peers.on('connection', async socket => {
         }
 
         // send the parameters to the client
-        callback(params)
+        callback({ params })
       }
     } catch (error) {
       console.log(error.message)
@@ -210,8 +220,8 @@ const createWebRtcTransport = async (callback) => {
     const webRtcTransport_options = {
       listenIps: [
         {
-          ip: '0.0.0.0', // replace with relevant IP address
-          announcedIp: '192.168.43.87',
+          ip: '127.0.0.1', // replace with relevant IP address
+          //announcedIp: '',
         }
       ],
       enableUdp: true,
@@ -236,20 +246,22 @@ const createWebRtcTransport = async (callback) => {
     // send back to the client the following prameters
     callback({
       // https://mediasoup.org/documentation/v3/mediasoup-client/api/#TransportOptions
+      params: {
         id: transport.id,
         iceParameters: transport.iceParameters,
         iceCandidates: transport.iceCandidates,
         dtlsParameters: transport.dtlsParameters,
       }
-    )
+    })
 
     return transport
 
   } catch (error) {
     console.log(error)
-    callback( {
+    callback({
+      params: {
         error: error
       }
-    )
+    })
   }
 }
