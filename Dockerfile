@@ -7,10 +7,14 @@ RUN \
 
 WORKDIR /usr/code
 
-COPY package*.json ./
+COPY package.json .
 RUN npm install
-RUN npm install -g  watchify
+
 COPY . .
-# EXPOSE 3000
-# EXPOSE 3300-2000/udp
-CMD ["npm","run", "start"]
+
+RUN ./node_modules/webpack/bin/webpack.js --config ./webpack.config.js
+
+EXPOSE 2000-3300
+
+
+ENTRYPOINT ["npm","run", "start"]

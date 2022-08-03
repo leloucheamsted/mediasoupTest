@@ -221,17 +221,21 @@ const createRecvTransport = async () => {
       return
     }
 
-    console.log(params)
+    console.log("consumer", params)
 
     // creates a new WebRTC Transport to receive media
     // based on server's consumer transport params
     // https://mediasoup.org/documentation/v3/mediasoup-client/api/#device-createRecvTransport
     consumerTransport = device.createRecvTransport(params)
 
+    console.log("cons1", consumerTransport)
+
     // https://mediasoup.org/documentation/v3/communication-between-client-and-server/#producing-media
     // this event is raised when a first call to transport.produce() is made
     // see connectRecvTransport() below
     consumerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+
+      console.log("consumer_connect", dtlsParameters)
       try {
         // Signal local DTLS parameters to the server side transport
         // see server's socket.on('transport-recv-connect', ...)
@@ -263,7 +267,7 @@ const connectRecvTransport = async () => {
       return
     }
 
-    console.log(params)
+    console.log("connect_cosnume_fun", params)
     // then consume with the local consumer transport
     // which creates a consumer
     consumer = await consumerTransport.consume({
@@ -273,8 +277,12 @@ const connectRecvTransport = async () => {
       rtpParameters: params.rtpParameters
     })
 
+    console.log("consumer object", consumer)
+
     // destructure and retrieve the video track from the producer
     const { track } = consumer
+
+    console.log("track", track)
 
     remoteVideo.srcObject = new MediaStream([track])
 
